@@ -12,6 +12,8 @@ class Timegate {
 
     this.startTime = Date.now()
     this.endTime = null
+
+    this.throwOnError = options.throwOnError || false
   }
 
   setData(key, value) {
@@ -41,7 +43,7 @@ class Timegate {
   }
 
   gate(name) {
-    if (this.series[name]) throw new Error(`Gate ${name} already exists`)
+    if (this.throwOnError && this.series[name]) throw new Error(`Gate ${name} already exists`)
 
     this.series[name] = {
       name: `${this.name}.${name}`,
@@ -54,7 +56,7 @@ class Timegate {
   }
 
   gateEnd(name) {
-    if (!this.series[name]) throw new Error(`Gate ${name} does not exist`)
+    if (this.throwOnError && !this.series[name]) throw new Error(`Gate ${name} does not exist`)
 
     this.series[name].endTime = Date.now()
 
