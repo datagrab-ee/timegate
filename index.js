@@ -31,7 +31,7 @@ class Timegate {
     this.endTime = Date.now()
 
     return {
-      name: `${this.prefix}-${this.name}`,
+      name: `${this.prefix}${this.name}`,
       startTime: this.startTime,
       endTime: this.endTime,
       totalTime: this.endTime - this.startTime,
@@ -44,7 +44,7 @@ class Timegate {
     if (this.series[name]) throw new Error(`Gate ${name} already exists`)
 
     this.series[name] = {
-      name: `${this.name}-${name}`,
+      name: `${this.name}.${name}`,
       startTime: Date.now(),
       endTime: null,
       sinceStart: Date.now() - this.startTime
