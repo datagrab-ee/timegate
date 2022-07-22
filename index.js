@@ -5,15 +5,21 @@ class Timegate {
   constructor(options = {}) {
 
     this.name = options.name || uuid()
-    this.prefix = options.prefix || ''
-
     this.meta = {}
-    this.series = {}
 
-    this.startTime = Date.now()
-    this.endTime = null
+    this.container = {}
 
+    this.gateTimeout = options.gateTimeout || 3 * 60e3
     this.throwOnError = options.throwOnError || false
+  }
+
+  #timerExists(timer) {
+    return this.container[timer]
+  }
+
+  #returnError(error) {
+    if (this.throwOnError) throw error
+    return { error }
   }
 
   setData(key, value) {
@@ -25,42 +31,64 @@ class Timegate {
   }
 
   start(name) {
-    this.name = name || this.name
-    this.startTime = Date.now()
-  }
+    if (this.#timerExists(name)) return this.#returnError(`Timegate named ${name} already exists`)
 
-  stop() {
-    this.endTime = Date.now()
-
-    return {
-      name: `${this.prefix}${this.name}`,
-      startTime: this.startTime,
-      endTime: this.endTime,
-      totalTime: this.endTime - this.startTime,
-      meta: this.meta,
-      series: Object.values(this.series)
-    }
-  }
-
-  gate(name) {
-    if (this.throwOnError && this.series[name]) throw new Error(`Gate ${name} already exists`)
-
-    this.series[name] = {
-      name: `${this.name}.${name}`,
+    this.container[name] = {
       startTime: Date.now(),
       endTime: null,
-      sinceStart: Date.now() - this.startTime
+      series: {}
     }
 
-    return this.series[name]
+    // memleak prevention
+    setTimeout(() => delete this.container[name], this.gateTimeout)
   }
 
-  gateEnd(name) {
-    if (this.throwOnError && !this.series[name]) throw new Error(`Gate ${name} does not exist`)
+  stop(name) {
+    const timer = this.#timerExists(name)
+    if (!timer) return this.#returnError(`Timegate named ${name} does not exist`)
 
-    this.series[name].endTime = Date.now()
+    timer.endTime = Date.now()
 
-    return this.series[name]
+    delete this.container[name]
+
+    return {
+      parent: this.name,
+      name,
+      startTime: timer.startTime,
+      endTime: timer.endTime,
+      totalTime: timer.endTime - timer.startTime,
+      meta: this.meta,
+      series: Object.values(timer.series)
+    }
+  }
+
+  gate(timer, name) {
+    if (!this.#timerExists(timer)) return this.#returnError(`Timegate named ${timer} does not exist`)
+
+    if (this.container[timer].series?.[name]) {
+      return this.#returnError(`Gate ${name} already exists`)
+    }
+
+    this.container[timer].series[name] = {
+      name: `${timer}.${name}`,
+      startTime: Date.now(),
+      endTime: null,
+      sinceStart: Date.now() - this.container[timer].startTime
+    }
+
+    return this.container[timer].series[name]
+  }
+
+  gateEnd(timer, name) {
+    if (!this.#timerExists(timer)) return this.#returnError(`Timegate named ${timer} does not exist`)
+
+    if (!this.container[timer].series?.[name]) {
+      return this.#returnError(`Gate ${name} does not exist`)
+    }
+
+    this.container[timer].series[name].endTime = Date.now()
+
+    return this.container[timer].series[name]
   }
 }
 
